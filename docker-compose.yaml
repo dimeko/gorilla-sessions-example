@@ -1,0 +1,61 @@
+version: "3"
+services:
+  app:
+    build: .
+    image: soft-sec
+    container_name: soft_sec
+    environment:
+      PORT: "${APP_PORT}"
+      POSTGRES_USER: "${POSTGRES_USER}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+      POSTGRES_DB: "${POSTGRES_DB}"
+      POSTGRES_PORT: "${POSTGRES_PORT}"
+      POSTGRES_HOST: "${POSTGRES_HOST}"
+    ports:
+      - "${APP_PORT}:${APP_PORT}"
+    volumes:
+      - ./:/app
+  postgres:
+    image: postgres:15.6-alpine
+    container_name: soft_sec_db
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+      POSTGRES_DB: "${POSTGRES_DB}"
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_PORT: "${POSTGRES_PORT}"
+    ports:
+     - "${POSTGRES_PORT}:5433"
+    command: -p 5433 -c max_connections=200
+    volumes:
+      - ./postgres:/var/lib/postgresql/data
+  migrate-up:
+    image: migrate/migrate
+    container_name: soft_sec_migrate_up
+    depends_on:
+      - postgres
+    volumes:
+        - ./core/migrations:/migrations
+    command: [
+      "-path", 
+      "/migrations", 
+      "-database", 
+      "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable",
+      "up"]
+  migrate-drop:
+    image: migrate/migrate
+    container_name: soft_sec_migrate_drop
+    depends_on:
+      - postgres
+    volumes:
+        - ./core/migrations:/migrations
+    command: [
+      "-path", 
+      "/migrations", 
+      "-database",
+      "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable",
+      "drop",
+      "-f"]
+volumes:
+  postgres:
+    driver: local
