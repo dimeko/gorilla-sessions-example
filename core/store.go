@@ -1,5 +1,10 @@
 package core
 
+import (
+	"crypto/sha256"
+	"fmt"
+)
+
 type Store struct {
 	Rdbms *RDBMS
 }
@@ -11,20 +16,6 @@ func NewStore() *Store {
 	}
 	return store
 }
-
-// func (s *Store) CreateStore(payload interface{}) (*interface{}, error) {
-// 	newUser, err := s.Rdbms.CreateRDBMS(payload)
-
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return newUser, nil
-// }
-
-// func (s *Store) Update(id string, payload interface{}) (*interface{}, error) {
-// 	updatedUser, err := UpdateRDBMS(id, payload)
-// 	return updatedUser, nil
-// }
 
 func (s *Store) ListProductsStore(limit string, offset string, filter string) ([]*Product, error) {
 	var products []*Product
@@ -41,39 +32,7 @@ func (s *Store) TotalProductsStore() int {
 	return s.Rdbms.TotalProductsRDBMS()
 }
 func (s *Store) Login(username string, password string) bool {
-	return s.Rdbms.UserExists(username, password)
+	_hash := sha256.New()
+	_hash.Write([]byte(password))
+	return s.Rdbms.UserExists(username, fmt.Sprintf("%x", _hash.Sum(nil)))
 }
-
-// func (s *Store) GetStore(id string) (*interface{}, error) {
-// 	unhashedCacheKey := "user:" + id
-// 	var user *interface{}
-
-// 	user, err = GetRDBMS(id)
-// 	if err != nil {
-// 		log.Error(err)
-// 		return nil, err
-// 	}
-
-// 	err2 := json.Unmarshal(item.Value, &user)
-// 	if err2 != nil {
-// 		log.Error(err2)
-// 		return nil, err2
-// 	}
-
-// 	return user, nil
-// }
-
-// func (s *Store) DeleteStore(id string) error {
-// 	unhashedCacheKey := "user:" + id
-// 	err := DeleteRDBMS(id)
-// 	if err != nil {
-// 		log.Error(err)
-// 		return err
-// 	}
-// 	err1 := s.Cache.Remove(unhashedCacheKey)
-// 	if err1 != nil {
-// 		log.Error(err1)
-// 	}
-
-// 	return nil
-// }

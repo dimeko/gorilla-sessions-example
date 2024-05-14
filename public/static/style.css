@@ -137,3 +137,23 @@ item-add-button:hover {
     width: 20%;
     margin: 15px;
 }
+
+.grid-container {
+    column-count: 3; /* Set the number of columns */
+    column-gap: 20px; /* Adjust the gap between columns */
+}
+
+.grid-item {
+    margin-bottom: 20px; /* Optional: Adjust spacing between items */
+    break-inside: avoid; /* Ensure items do not break across columns */
+}
+
+.item-remove-button {
+    width: 50%;
+    color: rgb(0, 0, 0);
+    background-color: red;
+}
+
+.cart-item {
+    margin: 5px;
+}

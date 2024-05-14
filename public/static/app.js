@@ -32,7 +32,7 @@ let timer;
         timer = setTimeout(() => { func.apply(this, args); }, timeout);
     };
 }
-  
+
 const ProductsList = {
     template:
     `
@@ -44,13 +44,21 @@ const ProductsList = {
         <input type="text" v-model="search_filter">
 
         <p>Input value: {{ search_filter }}</p>
-            <ul v-if="show_list">
-                <li v-for="product in products" :key="product.title">
+            <ul class="grid-container" v-if="show_list">
+                <li class="grid-item" v-for="product in products" :key="product.name">
                     <span>{{ product.title }}</span> - <span>{{ product.price }}</span> 
                     <button class="item-add-button" @click="handleItemClick(product)">Add</button>
                 </li>
             </ul>
-            <p>{{ total }}</p>
+            <p>Total products: {{ total }}</p>
+
+            <div> 
+                <p>Cart: </p>
+                    <div class="cart-item" v-for="cart_item in cart_items" :key="cart_item.name">
+                    <span>{{ cart_item.title }}</span> - <span>{{ cart_item.price }}</span>
+                    <button class="item-remove-button" @click="handleItemRemove(cart_item)">Remove</button>
+                </div>
+            </div>
         </div>
 
     `,
@@ -61,12 +69,14 @@ const ProductsList = {
             show_list: true,
             total: 0,
             products: [],
-            cart_items: []
+            cart_items: [],
+            search_timeout: null
         }
     },
     mounted() {
-        const params = new URLSearchParams(window.location.search);
+        const params = new URLSearchParams(window.location.search );
         const _f = params.get('filter');
+        this.cart_items = ls.get("cart") == null ? [] : ls.get("cart") 
 
         if (_f) {
             this.search_filter = _f;
@@ -74,7 +84,6 @@ const ProductsList = {
         fetch(`/api/list?filter=${this.search_filter}`)
             .then(response => response.json())
             .then(data => {
-                // Set products data
                 this.products = data.body.products;
                 this.total = data.body.total
             })
@@ -84,31 +93,33 @@ const ProductsList = {
     },
     watch: {
         search_filter(newVal) {
-            this.handleInput(newVal)
+            clearTimeout(this.search_timeout)
+            this.search_timeout = setTimeout(() => {
+                this.handleInput(newVal)
+            }, 400)
         },
     },
     methods: {
         handleInput() {
-            // TODO: search every 500 milliseconds
-            setTimeout(() => {
-                this.search_products = true
-            }, 500)
-            if(this.search_products == true){
-                fetch(`/api/list?filter=${this.search_filter}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        this.products = data.body.products;
-                        this.total = data.body.total
-                    })
-                    .catch(error => {
-                        console.error('Error fetching products:', error);
-                    });
-            }
-            this.search_products = false
+            fetch(`/api/list?filter=${this.search_filter}`)
+                .then(response => response.json())
+                .then(data => {
+                    this.products = data.body.products;
+                    this.total = data.body.total
+                })
+                .catch(error => {
+                    console.error('Error fetching products:', error);
+                });
         },
         handleItemClick(item) {
             this.cart_items = ls.get("cart") == null ? [] : ls.get("cart") 
             this.cart_items.push(item)
+            ls.add("cart", this.cart_items)
+        },
+        handleItemRemove(cart_item) {
+            this.cart_items = ls.get("cart") == null ? [] : ls.get("cart") 
+            this.cart_items = this.cart_items.filter((it) => it.name != cart_item.name)
+            console.log(this.cart_items)
             ls.add("cart", this.cart_items)
         }
     },

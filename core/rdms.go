@@ -14,6 +14,13 @@ type RDBMS struct {
 	Db *sql.DB
 }
 
+type Product struct {
+	Name        string `json:"name"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Price       int    `json:"price"`
+}
+
 func env() map[string]string {
 	err := godotenv.Load(filepath.Join("./", ".env"))
 	if err != nil {
@@ -52,7 +59,7 @@ func NewRDBMS() *RDBMS {
 }
 
 func (s *RDBMS) ListProductsRDBMS(limit string, offset string, filter string) ([]*Product, error) {
-	rows, err := s.Db.Query("SELECT title, description, price FROM products WHERE title LIKE $1 LIMIT $2 OFFSET $3", filter+"%", limit, offset)
+	rows, err := s.Db.Query("SELECT name, title, description, price FROM products WHERE name LIKE $1 OR title LIKE $1 LIMIT $2 OFFSET $3", filter+"%", limit, offset)
 	if err != nil {
 		log.Errorf("Error trying to query products. Params: %s, %s", limit, offset)
 		log.Error(err)
@@ -63,7 +70,7 @@ func (s *RDBMS) ListProductsRDBMS(limit string, offset string, filter string) ([
 	var products []*Product
 	for rows.Next() {
 		var p Product
-		if err := rows.Scan(&p.Title, &p.Description, &p.Price); err != nil {
+		if err := rows.Scan(&p.Name, &p.Title, &p.Description, &p.Price); err != nil {
 			return nil, err
 		}
 		products = append(products, &p)
@@ -82,7 +89,7 @@ func (s *RDBMS) TotalProductsRDBMS() int {
 
 func (s *RDBMS) UserExists(username string, password string) bool {
 	var _username string
-	err := s.Db.QueryRow("SELECT username FROM users WHERE username='?' AND password='?'", username, password).Scan(&_username)
+	err := s.Db.QueryRow("SELECT username FROM users WHERE username=$1 AND password=$2", username, password).Scan(&_username)
 
 	switch {
 	case err == sql.ErrNoRows:

@@ -27,8 +27,11 @@ services:
     ports:
      - "${POSTGRES_PORT}:5433"
     command: -p 5433 -c max_connections=200
-    volumes:
-      - ./postgres:/var/lib/postgresql/data
+  mailhog:
+      image: mailhog/mailhog
+      ports:
+        - "1025:1025"
+        - "8025:8025"
   migrate-up:
     image: migrate/migrate
     container_name: soft_sec_migrate_up
@@ -56,6 +59,3 @@ services:
       "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable",
       "drop",
       "-f"]
-volumes:
-  postgres:
-    driver: local

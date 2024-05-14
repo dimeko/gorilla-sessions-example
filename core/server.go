@@ -97,9 +97,11 @@ func NewServer(store *Store) *Server {
 	_api_auth_subrouter.HandleFunc("/list", server.list)
 	_api_auth_subrouter.HandleFunc("/order", server.order)
 
+	// Authentication routes (login GET/POST, logout GET)
 	_router.HandleFunc("/login", server.LoginPage)
 	_router.HandleFunc("/logout", server.logout).Methods("GET")
 
+	// Pages. All pages are protected by the AuthMiddleware
 	_static_auth_subrouter := _router.PathPrefix("/").Subrouter()
 	_static_auth_subrouter.Use(AuthMiddleware)
 	_static_auth_subrouter.HandleFunc("/", server.ProductsPage).Methods("GET")
@@ -210,6 +212,7 @@ func (server *Server) logout(w http.ResponseWriter, r *http.Request) {
 // Pages -----------------------------------------------------------------------------------------
 
 func (server *Server) LoginPage(w http.ResponseWriter, r *http.Request) {
+	_authentication_attempt := false
 	if r.Method == http.MethodPost {
 		setupCorsResponse(&w, r)
 		if (*r).Method == "OPTIONS" {
@@ -231,22 +234,21 @@ func (server *Server) LoginPage(w http.ResponseWriter, r *http.Request) {
 			session.Values["csrf"] = ""
 			// saves all sessions used during the current request
 			session.Save(r, w)
-			log.Infof("User logged in !!!")
+			log.Infof("User logged in.")
 			http.Redirect(w, r, "/products", http.StatusSeeOther)
 			return
 		} else {
-			w.Header().Set("Content-Type", "application/json")
-			w.Write([]byte("Wrong credentials"))
-			http.Redirect(w, r, "/login", http.StatusUnauthorized)
-			return
+			_authentication_attempt = true
 		}
 	}
 
 	// If not a POST request, serve the login page template.
 	_data := struct {
-		Title string
+		Title                  string
+		Authentication_attempt bool
 	}{
-		Title: "Login",
+		Title:                  "Login",
+		Authentication_attempt: _authentication_attempt,
 	}
 	tmpl, err := template.ParseFiles("public/login.gohtml")
 	if err != nil {

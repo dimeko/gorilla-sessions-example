@@ -21,12 +21,6 @@ var rootCmd = &cobra.Command{
 	Short: "Simple api server",
 }
 
-type Product struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	Price       int    `json:"price"`
-}
-
 type ProductsResponse struct {
 	Products []*Product `json:"products"`
 	Total    int        `json:"total"`

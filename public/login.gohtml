@@ -12,6 +12,13 @@
             <input type="text" id="username" name="username" required><br>
             <label for="password">Password:</label>
             <input type="password" id="password" name="password" required><br>
+            {{
+                if .Authentication_attempt
+            }}
+            <p style="color: red">Authentication error</p>
+            {{ 
+                end 
+            }}
             <button type="submit">Login</button>
         </form>
     </div>
