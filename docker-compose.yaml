@@ -27,11 +27,11 @@ services:
     ports:
      - "${POSTGRES_PORT}:5433"
     command: -p 5433 -c max_connections=200
-  mailhog:
-      image: mailhog/mailhog
-      ports:
-        - "1025:1025"
-        - "8025:8025"
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"
+      - "8025:8025"
   migrate-up:
     image: migrate/migrate
     container_name: soft_sec_migrate_up

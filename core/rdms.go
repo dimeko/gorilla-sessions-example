@@ -61,8 +61,8 @@ func NewRDBMS() *RDBMS {
 func (s *RDBMS) ListProductsRDBMS(limit string, offset string, filter string) ([]*Product, error) {
 	rows, err := s.Db.Query("SELECT name, title, description, price FROM products WHERE name LIKE $1 OR title LIKE $1 LIMIT $2 OFFSET $3", filter+"%", limit, offset)
 	if err != nil {
-		log.Errorf("Error trying to query products. Params: %s, %s", limit, offset)
-		log.Error(err)
+		logger.Errorf("Error trying to query products. Params: %s, %s", limit, offset)
+		logger.Error(err)
 		return nil, err
 	}
 	defer rows.Close()

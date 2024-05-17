@@ -21,7 +21,7 @@ func (s *Store) ListProductsStore(limit string, offset string, filter string) ([
 	var products []*Product
 	products, err1 := s.Rdbms.ListProductsRDBMS(limit, offset, filter)
 	if err1 != nil {
-		log.Error(err1)
+		logger.Error(err1)
 		return nil, err1
 	}
 

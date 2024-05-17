@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Email</title>
+    <style>
+        body, h1, p, ul, li {
+            margin: 10px;
+            padding: 10px;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+
+        /* Container to center content and add some padding */
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Header styling */
+        header {
+            text-align: center;
+            padding: 20px 0;
+            background: #6c7ae0;
+            color: #fff;
+            margin-bottom: 20px;
+            border-radius: 5px 5px 0 0;
+        }
+
+        header h1 {
+            font-size: 2em;
+        }
+
+        /* Main content styling */
+        main p {
+            margin-bottom: 20px;
+            font-size: 1.1em;
+        }
+
+        main ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+
+        main ul li {
+            background: #f9f9f9;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-left: 4px solid #6c7ae0;
+        }
+
+        /* Footer styling */
+        footer {
+            text-align: center;
+            padding: 10px 0;
+            background: #6c7ae0;
+            color: #fff;
+            margin-top: 20px;
+            border-radius: 0 0 5px 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>{{.Title}}</h1>
+    <p>{{.Message}}</p>
+    <h3>Your address details</h3>
+    <p>Area: {{.Order.Address.Area}}</p>
+    <p>City: {{.Order.Address.City}}</p>
+    <p>Code: {{.Order.Address.Code}}</p>
+    <p>Street: {{.Order.Address.Street}}</p>
+    <p>StreetNumber: {{.Order.Address.StreetNumber}}</p>
+    <h4>Items</h4>
+    <ul>
+        {{range .Order.Products}}
+            <li>{{.Name}}: {{.Price}}</li>
+        {{end}}
+    </ul>
+</body>
+</html>
