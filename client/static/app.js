@@ -47,20 +47,19 @@ const ProductsList = {
             <ul class="grid-container" v-if="show_list">
                 <li class="grid-item" v-for="product in products" :key="product.name">
                     <span>{{ product.title }}</span> - <span>{{ product.price }}</span> 
-                    <button class="item-add-button" @click="handleItemClick(product)">Add</button>
+                    <button class="item-add-button" :style="{ 'background-color': disableItem(product) ? 'gray' : '' }" @click="handleItemClick(product)" :disabled="disableItem(product)">Add</button>
                 </li>
             </ul>
-            <p>Total products: {{ total }}</p>
+            <p>Total products: {{ products != null ? products.length : 0 }} out of {{ total }}</p>
 
             <div> 
                 <p>Cart: </p>
                     <div class="cart-item" v-for="cart_item in cart_items" :key="cart_item.name">
                     <span>{{ cart_item.title }}</span> - <span>{{ cart_item.price }}</span>
-                    <button class="item-remove-button" @click="handleItemRemove(cart_item)">Remove</button>
+                    <button class="item-remove-button"  @click="handleItemRemove(cart_item)">Remove</button>
                 </div>
             </div>
         </div>
-
     `,
     data() {
         return {
@@ -119,8 +118,13 @@ const ProductsList = {
         handleItemRemove(cart_item) {
             this.cart_items = ls.get("cart") == null ? [] : ls.get("cart") 
             this.cart_items = this.cart_items.filter((it) => it.name != cart_item.name)
-            console.log(this.cart_items)
+
             ls.add("cart", this.cart_items)
+        },
+        disableItem(item) {
+            return this.cart_items.some(cart_item => 
+                cart_item.name === item.name
+            );
         }
     },
 }
@@ -133,6 +137,15 @@ const ProductsListInCart = {
                 <span class="close" @click="closeSubmitModal">&times;</span>
                 <h2>Confirmation</h2>
                 <p>Are you sure you want to submit the form?</p>
+                <p>City: {{address_form.city}}</p>
+                <p>Area: {{address_form.area}}</p>
+                <p>Code: {{address_form.code}}</p>
+                <p>Street: {{address_form.street}}</p>
+                <p>Street Number: {{address_form.streetNumber}}</p>
+                <h4>Items</h4>
+                <ul>
+                    <li v-for="cart_item in cart_items" :key="cart_item.name">{{cart_item.title}}: {{cart_item.price}}</li>
+                </ul>
                 <button class="modal-button" style="background-color: #718472" @click="submitForm">Yes</button>
                 <button class="modal-button" style="background-color: #25d428" @click="closeSubmitModal">No</button>
             </div>

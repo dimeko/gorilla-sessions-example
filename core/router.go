@@ -12,6 +12,8 @@ import (
 	"github.com/gorilla/sessions"
 )
 
+const CHECKOUT_FORM = "checkout_form"
+
 type LoginBody struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
@@ -32,13 +34,18 @@ type Order struct {
 		Street       string `json:"street"`
 		StreetNumber int    `json:"streetNumber"`
 	} `json:"address"`
-	// Add more fields as needed
 }
 
 /* Authentication related controllers */
 const (
 	sessionId = "sessionId"
 )
+
+// Key-value structure to keep track of the authenticated users
+var authenticated_users = make(map[string]bool)
+
+// Key-value structure to keep track of the valid csrf tokens
+var csrf_to_forms = make(map[string]map[string]string)
 
 var session_store *sessions.CookieStore
 
@@ -52,13 +59,16 @@ func init() {
 
 	session_store.Options = &sessions.Options{
 		Path:     "/",
-		MaxAge:   60 * 15,
 		HttpOnly: true,
 	}
 }
 
 func Session(r *http.Request) (*sessions.Session, error) {
 	return session_store.Get(r, sessionId)
+}
+
+func NewSession(r *http.Request) (*sessions.Session, error) {
+	return session_store.New(r, sessionId)
 }
 
 func SessionUser(r *http.Request) string {
@@ -128,18 +138,24 @@ func NewServer(store *Store) *Server {
 // AuthMiddleware is a middleware function to check authentication
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Check if the request contains an "Authorization" header
 		setupCorsResponse(&w, r)
 		_s, _ := Session(r)
-		_is_auth := _s.Values["authenticated"]
-		_authenticated, _ := _is_auth.(bool)
-
-		if !_authenticated {
-			logger.Infof("User is not authenticated.")
-			http.Redirect(w, r, "/login", http.StatusMovedPermanently)
-			return
+		if _s.Values["authenticated"] != nil &&
+			_s.Values["authenticated"] != false {
+			if _, ok := _s.Values["user"]; ok {
+				if ok := authenticated_users[_s.Values["user"].(string)]; ok && authenticated_users[_s.Values["user"].(string)] {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
 		}
-		next.ServeHTTP(w, r)
+		if _, ok := _s.Values["user"]; ok {
+			if ok := authenticated_users[_s.Values["user"].(string)]; ok {
+				authenticated_users[_s.Values["user"].(string)] = false
+			}
+		}
+		logger.Infof("User is not authenticated.")
+		http.Redirect(w, r, "/login", http.StatusMovedPermanently)
 	})
 }
 
@@ -173,24 +189,42 @@ func (server *Server) list(w http.ResponseWriter, r *http.Request) {
 }
 
 func (server *Server) order(w http.ResponseWriter, r *http.Request) {
-	session, _ := Session(r)
+	_s, err := Session(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	var order_data Order
-	err := json.NewDecoder(r.Body).Decode(&order_data)
+	err = json.NewDecoder(r.Body).Decode(&order_data)
 	if err != nil {
 		errorResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	logger.Infof("Incoming csrf: %s, Existing csrf: %#v", order_data.Csrf, session.Values)
-	if session.Values["csrf"] != order_data.Csrf {
-		session.Values["csrf"] = nil
+	if _, ok := csrf_to_forms[_s.Values["user"].(string)]; ok {
+		if _, ok := csrf_to_forms[_s.Values["user"].(string)][CHECKOUT_FORM]; ok && _s.Values["csrf"] != csrf_to_forms[_s.Values["user"].(string)][CHECKOUT_FORM] {
+			errorResponse(w, http.StatusBadRequest, "Bad CSRF token")
+			return
+		}
+	}
+	logger.Infof("Incoming csrf: %s, Existing csrf: %#v", order_data.Csrf, _s.Values)
+	if _s.Values["csrf"] != order_data.Csrf {
+		csrf_to_forms[_s.Values["user"].(string)][CHECKOUT_FORM] = ""
+		_s.Values["csrf"] = nil
 		errorResponse(w, http.StatusBadRequest, "Bad CSRF token")
 		return
 	}
-	session.Values["csrf"] = nil
-	session.Save(r, w)
+
+	csrf_to_forms[_s.Values["user"].(string)][CHECKOUT_FORM] = ""
+	_s.Values["csrf"] = nil
+
+	err = _s.Save(r, w)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	SendMail(
-		session.Values["username"].(string),
+		_s.Values["user"].(string),
 		"Thank you for your order!",
 		order_data)
 
@@ -199,20 +233,22 @@ func (server *Server) order(w http.ResponseWriter, r *http.Request) {
 }
 
 func (server *Server) logout(w http.ResponseWriter, r *http.Request) {
-	session, _ := Session(r)
-	if session.Values["authenticated"] == true {
-		session.Values["authenticated"] = false
-		session.Values["username"] = nil
-		session.Values["csrf"] = nil
-		session.Options.MaxAge = -1
-		session.Save(r, w)
-		successResponse(w, http.StatusOK, "Logged out")
-		return
-	} else {
-		successResponse(w, http.StatusOK, "Already logged out")
+	_s, err := Session(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	errorResponse(w, http.StatusInternalServerError, "Server error")
+	authenticated_users[_s.Values["user"].(string)] = false
+	_s.Values["authenticated"] = false
+	_s.Options.MaxAge = -1
+
+	err = _s.Save(r, w)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, "/login", http.StatusMovedPermanently)
 }
 
 // Pages -----------------------------------------------------------------------------------------
@@ -234,10 +270,17 @@ func (server *Server) LoginPage(w http.ResponseWriter, r *http.Request) {
 		_logged_in := server.Store.Login(_u, _p)
 
 		if _logged_in {
-			session, _ := Session(r)
+			session, _ := NewSession(r)
 			session.Values["authenticated"] = true
-			session.Values["username"] = _u
+			session.Values["user"] = _u
 			session.Values["csrf"] = ""
+			session.Options = &sessions.Options{
+				Path:     "/",
+				MaxAge:   60 * 5, // 5 minutes cookie
+				HttpOnly: true,
+			}
+
+			authenticated_users[_u] = true
 			// saves all sessions used during the current request
 			session.Save(r, w)
 			logger.Infof("User logged in.")
@@ -265,14 +308,11 @@ func (server *Server) LoginPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (server *Server) ProductsPage(w http.ResponseWriter, r *http.Request) {
-	session, _ := Session(r)
-	session.Values["csrf"] = nil
 	_data := struct {
 		Title string
 	}{
 		Title: "Products",
 	}
-	session.Save(r, w)
 	tmpl, err := template.ParseFiles("client/products.gohtml")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -282,18 +322,31 @@ func (server *Server) ProductsPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (server *Server) CheckoutPage(w http.ResponseWriter, r *http.Request) {
-	session, _ := Session(r)
-	session.Values["csrf"] = uuid.New().String()
-	logger.Infof("Session current %#v", session.Values)
+	_s, err := Session(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	new_csrf_token := uuid.New().String()
+	_s.Values["csrf"] = new_csrf_token
+	csrf_to_forms[_s.Values["user"].(string)] = map[string]string{
+		CHECKOUT_FORM: new_csrf_token,
+	}
+
+	logger.Infof("Session current %#v", _s.Values)
 
 	_data := struct {
 		Title string
 		Csrf  string
 	}{
 		Title: "Checkout",
-		Csrf:  session.Values["csrf"].(string),
+		Csrf:  _s.Values["csrf"].(string),
 	}
-	session.Save(r, w)
+	err = _s.Save(r, w)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	tmpl, err := template.ParseFiles("client/checkout.gohtml")
 	if err != nil {
@@ -304,15 +357,23 @@ func (server *Server) CheckoutPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (server *Server) ThankYou(w http.ResponseWriter, r *http.Request) {
-	session, _ := Session(r)
-	session.Values["csrf"] = nil
+	_s, err := Session(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	_s.Values["csrf"] = nil
 	_data := struct {
 		Title string
 	}{
 		Title: "Thank you",
 	}
 
-	session.Save(r, w)
+	err = _s.Save(r, w)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	tmpl, err := template.ParseFiles("client/thankyou.gohtml")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
