@@ -36,7 +36,6 @@ type Order struct {
 	} `json:"address"`
 }
 
-/* Authentication related controllers */
 const (
 	sessionId = "sessionId"
 )
@@ -120,7 +119,6 @@ func NewServer(store *Store) *Server {
 	_api_auth_subrouter.HandleFunc("/list", server.list)
 	_api_auth_subrouter.HandleFunc("/order", server.order)
 
-	// Authentication routes (login GET/POST, logout GET)
 	_router.HandleFunc("/login", server.LoginPage)
 	_router.HandleFunc("/logout", server.logout).Methods("GET")
 
