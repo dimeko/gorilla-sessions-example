@@ -8,6 +8,7 @@ import (
 
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type RDBMS struct {
@@ -88,14 +89,23 @@ func (s *RDBMS) TotalProductsRDBMS() int {
 	return total_count
 }
 
-func (s *RDBMS) UserExists(username string, password string) bool {
-	var _username string
-	err := s.Db.QueryRow("SELECT username FROM users WHERE username=$1 AND password=$2", username, password).Scan(&_username)
-
-	switch {
-	case err == sql.ErrNoRows:
+func _compare_passwords(hashed_pwd string, plain_pwd []byte) bool {
+	byte_hash := []byte(hashed_pwd)
+	err := bcrypt.CompareHashAndPassword(byte_hash, plain_pwd)
+	if err != nil {
+		logger.Println(err)
 		return false
-	default:
-		return true
 	}
+
+	return true
+}
+
+func (s *RDBMS) Login(username string, password string) bool {
+	var pwd string
+	err := s.Db.QueryRow("SELECT password FROM users WHERE username=$1", username).Scan(&pwd)
+	if err != nil {
+		logger.Println(err)
+		return false
+	}
+	return _compare_passwords(pwd, []byte(password))
 }

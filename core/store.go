@@ -1,10 +1,5 @@
 package core
 
-import (
-	"crypto/sha256"
-	"fmt"
-)
-
 type Store struct {
 	Rdbms *RDBMS
 }
@@ -32,7 +27,5 @@ func (s *Store) TotalProductsStore() int {
 	return s.Rdbms.TotalProductsRDBMS()
 }
 func (s *Store) Login(username string, password string) bool {
-	_hash := sha256.New()
-	_hash.Write([]byte(password))
-	return s.Rdbms.UserExists(username, fmt.Sprintf("%x", _hash.Sum(nil)))
+	return s.Rdbms.Login(username, password)
 }

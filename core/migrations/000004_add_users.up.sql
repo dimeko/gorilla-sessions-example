@@ -1,12 +1,12 @@
 START TRANSACTION;
 
 INSERT INTO users (username, password, firstname, lastname)
-VALUES ('admin', '713bfda78870bf9d1b261f565286f85e97ee614efe5f0faf7c34e7ca4f65baca', 'Lakis', 'Mitsis');
+VALUES ('admin', '$2a$04$ZHX0QBV/V/T9slKTUezQsu8WfTfYlrQnnEmpYzHd9VHAaibS/Uumq', 'Lakis', 'Mitsis');
 
 INSERT INTO users (username, password, firstname, lastname)
-VALUES ('takis', '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8', 'Takis', 'Argyriou');
+VALUES ('takis', '$2a$04$agVyVYhMgYs.bX.4MMmr4.gg5.ki8low/YN.UmCSQ4Lk.Ki3pIpUi', 'Takis', 'Argyriou');
 
 INSERT INTO users (username, password, firstname, lastname)
-VALUES ('sakis', '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8', 'Sakis', 'Petrovelegios');
+VALUES ('sakis', '$2a$04$csLRza1bwJuUyv2RHsvgI.aC8F9jFO/TJIye1ehzQY4dSdSr9fRym', 'Sakis', 'Petrovelegios');
 
 COMMIT;
