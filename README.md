@@ -2,7 +2,7 @@
 
 Creating the TLS certificates:
 ```
-openssl req -x509 -nodes -newkey rsa:2048 -keyout private.key -out certificate.crt -days 365 -config openssl.cnf
+openssl req -x509 -nodes -newkey rsa:2048 -keyout private.key -out certificate.crt -days 365 -config openssl.cnf -extensions certauth
 ```
 
 Running the application stack:
