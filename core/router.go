@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -13,6 +14,7 @@ import (
 )
 
 const CHECKOUT_FORM = "checkout_form"
+const COOKIE_TTL = 300
 
 type LoginBody struct {
 	Username string `json:"username"`
@@ -40,11 +42,10 @@ const (
 	sessionId = "sessionId"
 )
 
-// Key-value structure to keep track of the authenticated users
-var authenticated_users = make(map[string]bool)
-
 // Key-value structure to keep track of the valid csrf tokens
 var csrf_to_forms = make(map[string]map[string]string)
+
+var invalid_cookies = make(map[string]int64)
 
 var session_store *sessions.CookieStore
 
@@ -68,13 +69,6 @@ func Session(r *http.Request) (*sessions.Session, error) {
 
 func NewSession(r *http.Request) (*sessions.Session, error) {
 	return session_store.New(r, sessionId)
-}
-
-func SessionUser(r *http.Request) string {
-	session, _ := Session(r)
-	username := session.Values["username"].(string)
-
-	return username
 }
 
 func errorResponse(w http.ResponseWriter, code int, message string) {
@@ -138,19 +132,29 @@ func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		setupCorsResponse(&w, r)
 		_s, _ := Session(r)
-		if _s.Values["authenticated"] != nil &&
-			_s.Values["authenticated"] != false {
-			if _, ok := _s.Values["user"]; ok {
-				if ok := authenticated_users[_s.Values["user"].(string)]; ok && authenticated_users[_s.Values["user"].(string)] {
-					next.ServeHTTP(w, r)
-					return
+		now := time.Now()
+		if _s.Values["time_generated"] != nil && _s.Values["id"] != nil {
+			for k, v := range invalid_cookies {
+				if now.Unix()-v > COOKIE_TTL {
+					delete(invalid_cookies, k)
 				}
 			}
-		}
-		if _, ok := _s.Values["user"]; ok {
-			if ok := authenticated_users[_s.Values["user"].(string)]; ok {
-				authenticated_users[_s.Values["user"].(string)] = false
+
+			if _t, ok := invalid_cookies[_s.Values["id"].(string)]; ok {
+				if now.Unix()-_t > COOKIE_TTL {
+					delete(invalid_cookies, _s.ID)
+				} else {
+					logger.Infof("User is not authenticated.")
+					http.Redirect(w, r, "/login", http.StatusMovedPermanently)
+				}
 			}
+
+			if now.Unix()-_s.Values["time_generated"].(int64) > COOKIE_TTL {
+				logger.Infof("User is not authenticated.")
+				http.Redirect(w, r, "/login", http.StatusMovedPermanently)
+			}
+			next.ServeHTTP(w, r)
+			return
 		}
 		logger.Infof("User is not authenticated.")
 		http.Redirect(w, r, "/login", http.StatusMovedPermanently)
@@ -232,12 +236,12 @@ func (server *Server) order(w http.ResponseWriter, r *http.Request) {
 
 func (server *Server) logout(w http.ResponseWriter, r *http.Request) {
 	_s, err := Session(r)
+	now := time.Now()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	authenticated_users[_s.Values["user"].(string)] = false
-	_s.Values["authenticated"] = false
+	invalid_cookies[_s.Values["id"].(string)] = now.Unix()
 	_s.Options.MaxAge = -1
 
 	err = _s.Save(r, w)
@@ -269,16 +273,19 @@ func (server *Server) LoginPage(w http.ResponseWriter, r *http.Request) {
 
 		if _logged_in {
 			session, _ := NewSession(r)
-			session.Values["authenticated"] = true
+			now := time.Now()
+			uuid := uuid.New()
+
 			session.Values["user"] = _u
 			session.Values["csrf"] = ""
+			session.Values["time_generated"] = now.Unix()
+			session.Values["id"] = uuid.String()
 			session.Options = &sessions.Options{
 				Path:     "/",
 				MaxAge:   60 * 5, // 5 minutes cookie
 				HttpOnly: true,
 			}
 
-			authenticated_users[_u] = true
 			// saves all sessions used during the current request
 			session.Save(r, w)
 			logger.Infof("User logged in.")
