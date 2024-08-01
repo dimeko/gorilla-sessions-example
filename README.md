@@ -1,4 +1,4 @@
-#### Software Security Project 2
+#### gorilla/sessions good practices
 
 Creating the TLS certificates:
 ```
